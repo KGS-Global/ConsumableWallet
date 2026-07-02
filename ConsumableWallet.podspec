@@ -10,10 +10,14 @@ Pod::Spec.new do |spec|
 
   spec.name         = "ConsumableWallet"
   spec.version      = "0.0.1"
-  spec.summary      = "A short description of ConsumableWallet."
+  spec.summary      = "A lightweight swift library for managing consumable credits"
 
   spec.description  = <<-DESC 
-                    IOS Client Helper for tracking consumable credits.
+                    IOS Client Helper for tracking consumable credits. In this project, this client library is backed by 
+a server side implementation for managing credits. When a user purchases credits pack in the ios app, this library will 
+communicate with the credit server deployed and add credits to your designated wallet. For a wallet, 3 types of identity is used 
+to identify users wallet uniquely. DeviceLocal(KeyChain UUID), SubscriptionID(current active subscription's original transaction id) and 
+AppleID (if apple sign in is done by the user)
                    DESC
 
   spec.homepage     = "https://github.com/KGS-Global/GenericIAPHelper2"
