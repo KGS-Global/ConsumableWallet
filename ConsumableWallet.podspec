@@ -20,13 +20,13 @@ to identify users wallet uniquely. DeviceLocal(KeyChain UUID), SubscriptionID(cu
 AppleID (if apple sign in is done by the user)
                    DESC
 
-  spec.homepage     = "https://github.com/KGS-Global/GenericIAPHelper2"
+  spec.homepage     = "https://github.com/KGS-Global/ConsumableWallet"
   
   spec.license      = { :type => "MIT", :file => "LICENSE" }
   spec.author       = { "KGS-Global" => "kgs.bitbucket.manager@gmail.com" }
   
   spec.platform     = :ios, "15.0"
-  spec.source       = { :git => "https://github.com/KGS-Global/GenericIAPHelper2.git", :tag => "#{spec.version}" }
+  spec.source       = { :git => "https://github.com/KGS-Global/ConsumableWallet.git", :tag => "#{spec.version}" }
 
   spec.source_files  = "ConsumableWallet", "ConsumableWallet/**/*.{h,m,swift}"
 
