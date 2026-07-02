@@ -10,13 +10,13 @@ import StoreKit
 
 // MARK: - Enums
 
-public enum IdentityType: String, Codable {
+public enum IdentityType: String, Codable, Sendable {
     case apple = "APPLE"
     case subOriginal = "SUB_ORIGINAL"
     case device = "DEVICE_LOCAL"
 }
 
-public enum BootstrapWarning: Codable, Equatable {
+public enum BootstrapWarning: Codable, Equatable, Sendable {
     // Device rehoming
     case deviceRehomtedToNewGuestWallet
     case deviceRehomtedToAppleWallet

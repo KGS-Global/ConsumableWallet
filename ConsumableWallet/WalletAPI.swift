@@ -101,7 +101,7 @@ final class WalletAPI: WalletAPIType {
 
     init(with walletConfig: WalletConfig, session: URLSession = .shared) {
         guard let url = walletConfig.walletBaseURL else {
-            fatalError("Invalid base URL string: \(walletConfig.walletBaseURL?.absoluteString)")
+            fatalError("Invalid base URL string: \(String(describing: walletConfig.walletBaseURL?.absoluteString))")
         }
         self.baseURL = url
         self.appId = walletConfig.appId
@@ -293,7 +293,7 @@ final class WalletAPI: WalletAPIType {
                 throw WalletAPIError.httpError(status: -1, body: "Non-HTTP response")
             }
             
-            print("BAKER TEST: Request:", request.url)
+            print("BAKER TEST: Request url: ", request.url ?? "--")
             print("BAKER TEST: statusCode: ", http.statusCode)
             
             guard (200..<300).contains(http.statusCode) else {

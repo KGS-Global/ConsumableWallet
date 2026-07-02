@@ -11,7 +11,7 @@ extension Notification.Name {
     public static let walletDidUpdate = Notification.Name("walletDidUpdate")
 }
 
-public struct WalletSnapshot: Codable {
+public struct WalletSnapshot: Codable, Sendable {
     public let walletId: String
     public let availableBalance: Int
     public let reservedBalance: Int

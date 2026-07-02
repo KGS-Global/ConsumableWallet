@@ -17,7 +17,7 @@ enum KeychainError: Error {
 struct KeychainUUIDStore {
 
     static func readUUID(service: String, account: String, synchronizable: Bool) throws -> UUID? {
-        var q: [String: Any] = [
+        let q: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
@@ -48,7 +48,7 @@ struct KeychainUUIDStore {
 
         let data = uuid.uuidString.data(using: .utf8)!
 
-        var add: [String: Any] = [
+        let add: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
@@ -63,7 +63,7 @@ struct KeychainUUIDStore {
 
     /// Delete a specific synchronizable=true or synchronizable=false item.
     static func deleteUUID(service: String, account: String, synchronizable: Bool) throws {
-        var q: [String: Any] = [
+        let q: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
@@ -76,7 +76,7 @@ struct KeychainUUIDStore {
 
     /// Reset helper: delete BOTH syncable and non-syncable variants.
     static func deleteAnyUUID(service: String, account: String) throws {
-        var q: [String: Any] = [
+        let q: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
