@@ -11,33 +11,14 @@ import Foundation
 
 protocol WalletAPIType {
     func bootstrap(request: BootstrapRequest) async throws -> BootstrapResponse
-
-    func grantCredits(walletId: String,
-                      idempotencyKey: String,
-                      credits: Int,
-                      reason: String,
-                      metadata: [String: String]?) async throws -> SubscriptionSyncResponse
     
     func grantAppstoreVerifiedCredits(request: AppStoreCreditGrantRequest) async throws -> AppStoreCreditGrantResponse
     
     func syncAppstoreVerifiedSubscription(request: SubscriptionSyncRequest) async throws -> SubscriptionSyncResponse
 
-    func reserveCredits(walletId: String,
-                        featureId: String,
-                        amount: Int,
-                        clientRequestId: String,
-                        reason: String?,
-                        metadata: [String: String]?) async throws -> ReservationResponse
-
-    func cancelReservation(reservationId: String,
-                           taskId: String?,
-                           reason: String?,
-                           idempotencyKey: String?,
-                           metadata: [String: String]?) async throws -> ConsumeCancelResponse
+    func reserveCredits(request: ReservationRequest) async throws -> ReservationResponse
 
     func getReservationStatus(reservationId: String) async throws -> ReservationStatusResponse
-
-    
 
 
     // MARK: Delete later
@@ -49,20 +30,35 @@ protocol WalletAPIType {
 
     func settleReserve(reservationId: String,
                        taskId: String,
-                       result: String) async throws -> SettleResponse
+                       result: String) async throws -> BalanceResponse
 
     func cancelReserve(reservationId: String,
-                       taskId: String,
-                       reason: String) async throws -> SettleResponse
+                       taskId: String?,
+                       reason: String?) async throws -> BalanceResponse
 }
 
 // MARK: - API Errors
 
 public enum WalletAPIError: Error, LocalizedError {
-    case invalidBaseURL(String)
     case httpError(status: Int, body: String)
-    case decodingError(String)
+    case validationError(String)
+    
+    //REQUEST HEADER RELATED ISSUES.
+    case unknownApp
+    case badAppKey
+    case walletNotResolved
+    
+    //RESERVATION ERRORS
+    case unknownFeature
+    case featureDisabled
+    case featureCostInvalid
+    case featureCostExceedsMaxFeatureCost
+    case featureCostMismatch
+    case invalidWallet
     case insufficientCredits
+    
+    case decodingError(String)
+    
     case timeout
     case offline
     case cancelled
@@ -70,10 +66,32 @@ public enum WalletAPIError: Error, LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .invalidBaseURL(let s):
-            return "Invalid base URL: \(s)"
         case .httpError(let status, let body):
             return "HTTP \(status): \(body)"
+        case .validationError(let msg):
+            return "Validation error: \(msg)"
+            
+        case .walletNotResolved:
+            return "No Wallet Found, Wallet Bootstrap required, contact support!"
+            
+        case .unknownApp:
+            return "Invalid App ID in request."
+        case .badAppKey:
+            return "Invalid APP Key in request."
+            
+        case .unknownFeature:
+            return "Unknown Feature ID in request."
+        case .featureDisabled:
+            return "This feature is currently disabled."
+        case .featureCostInvalid:
+            return "Feature credit cost validation failed. Contact Support!"
+        case .featureCostExceedsMaxFeatureCost:
+            return "Feature credit cost exceeds the maximum allowed. Contact Support!"
+        case .featureCostMismatch:
+            return "Feature credit cost mismatched. Contact Support"
+        case .invalidWallet:
+            return "Wallet is invalid or inactive."
+        
         case .decodingError(let msg):
             return "Decoding error: \(msg)"
         case .insufficientCredits:
@@ -118,25 +136,6 @@ final class WalletAPI: WalletAPIType {
             responseType: BootstrapResponse.self
         )
     }
-
-    func grantCredits(walletId: String,
-                      idempotencyKey: String,
-                      credits: Int,
-                      reason: String,
-                      metadata: [String: String]? = nil) async throws -> SubscriptionSyncResponse {
-        let req = GrantRequest(
-            walletId: walletId,
-            idempotencyKey: idempotencyKey,
-            credits: credits,
-            reason: reason,
-            metadata: metadata
-        )
-        return try await post(
-            path: "/v1/credits/grant",
-            body: req,
-            responseType: SubscriptionSyncResponse.self
-        )
-    }
     
     func grantAppstoreVerifiedCredits(request: AppStoreCreditGrantRequest) async throws -> AppStoreCreditGrantResponse {
         return try await post(
@@ -145,23 +144,6 @@ final class WalletAPI: WalletAPIType {
             responseType: AppStoreCreditGrantResponse.self)
     }
     
-//    func syncSubscription(walletId: String,
-//                          isActive: Bool,
-//                          paidThrough: Date?,
-//                          anchorStart: Date?) async throws -> SubscriptionSyncResponse {
-//        let req = SubscriptionSyncRequest(
-//            walletId: walletId,
-//            isActive: isActive,
-//            paidThrough: paidThrough,
-//            anchorStart: anchorStart
-//        )
-//        return try await post(
-//            path: "/v1/subscription/sync",
-//            body: req,
-//            responseType: SubscriptionSyncResponse.self
-//        )
-//    }
-    
     func syncAppstoreVerifiedSubscription(request: SubscriptionSyncRequest) async throws -> SubscriptionSyncResponse {
         return try await post(
             path: "/v1/appstore/subscription/sync",
@@ -169,32 +151,12 @@ final class WalletAPI: WalletAPIType {
             responseType: SubscriptionSyncResponse.self)
     }
 
-    func reserveCredits(walletId: String,
-                        featureId: String,
-                        amount: Int,
-                        clientRequestId: String,
-                        reason: String? = nil,
-                        metadata: [String: String]? = nil) async throws -> ReservationResponse {
-        let req = ConsumeReserveRequest(
-            walletId: walletId,
-            featureId: featureId,
-            amount: amount,
-            clientRequestId: clientRequestId,
-            reason: reason,
-            metadata: metadata
+    func reserveCredits(request: ReservationRequest) async throws -> ReservationResponse {
+        return try await post(
+            path: "/v1/consume/reserve",
+            body: request,
+            responseType: ReservationResponse.self
         )
-        do {
-            return try await post(
-                path: "/v1/consume/reserve",
-                body: req,
-                responseType: ReservationResponse.self
-            )
-        } catch let WalletAPIError.httpError(status, body) {
-            if status == 409, body.contains("INSUFFICIENT_CREDITS") {
-                throw WalletAPIError.insufficientCredits
-            }
-            throw WalletAPIError.httpError(status: status, body: body)
-        }
     }
 
     func cancelReservation(reservationId: String,
@@ -298,7 +260,8 @@ final class WalletAPI: WalletAPIType {
             
             guard (200..<300).contains(http.statusCode) else {
                 let bodyStr = String(data: data, encoding: .utf8) ?? "<non-utf8 body>"
-                throw WalletAPIError.httpError(status: http.statusCode, body: bodyStr)
+//                throw WalletAPIError.httpError(status: http.statusCode, body: bodyStr)
+                throw mapServerError(status: http.statusCode, body: bodyStr, data: data)
             }
             do {
                 return try makeDecoder().decode(R.self, from: data)
@@ -323,6 +286,79 @@ final class WalletAPI: WalletAPIType {
             throw WalletAPIError.cancelled
         } catch {
             throw WalletAPIError.unknown(error)
+        }
+    }
+    private struct ServerErrorResponse: Decodable {
+    
+        let detail: String?
+    }
+
+    private func extractServerErrorCode(from data: Data, fallbackBody: String) -> String? {
+        // Expected FastAPI shape:
+        // { "detail": "INSUFFICIENT_CREDITS" }
+        if let decoded = try? makeDecoder().decode(ServerErrorResponse.self, from: data),
+           let detail = decoded.detail,
+           !detail.isEmpty {
+            return detail
+        }
+
+        // Fallback for unexpected/non-standard responses.
+        let knownCodes = [
+            "UNKNOWN_APP",
+            "BAD_APP_KEY",
+
+            "UNKNOWN_FEATURE",
+            "FEATURE_DISABLED",
+            "FEATURE_COST_INVALID",
+            "FEATURE_COST_EXCEEDS_MAX_FEATURE_COST",
+            "FEATURE_COST_MISMATCH",
+
+            "INVALID_WALLET",
+            "INSUFFICIENT_CREDITS"
+        ]
+
+        return knownCodes.first { fallbackBody.contains($0) }
+    }
+
+    private func mapServerError(status: Int, body: String, data: Data) -> WalletAPIError {
+        guard let code = extractServerErrorCode(from: data, fallbackBody: body) else {
+            if status == 422 {
+                return .validationError(body)
+            }
+
+            return .httpError(status: status, body: body)
+        }
+
+        switch code {
+        case "UNKNOWN_APP":
+            return .unknownApp
+
+        case "BAD_APP_KEY":
+            return .badAppKey
+
+        case "UNKNOWN_FEATURE":
+            return .unknownFeature
+
+        case "FEATURE_DISABLED":
+            return .featureDisabled
+
+        case "FEATURE_COST_INVALID":
+            return .featureCostInvalid
+
+        case "FEATURE_COST_EXCEEDS_MAX_FEATURE_COST":
+            return .featureCostExceedsMaxFeatureCost
+
+        case "FEATURE_COST_MISMATCH":
+            return .featureCostMismatch
+
+        case "INVALID_WALLET":
+            return .invalidWallet
+
+        case "INSUFFICIENT_CREDITS":
+            return .insufficientCredits
+
+        default:
+            return .httpError(status: status, body: body)
         }
     }
 }
@@ -355,7 +391,7 @@ extension WalletAPI {
 
     func settleReserve(reservationId: String,
                        taskId: String,
-                       result: String) async throws -> SettleResponse {
+                       result: String) async throws -> BalanceResponse {
 
         let req = SettleRequest(reservationId: reservationId, taskId: taskId, result: result)
 
@@ -363,7 +399,7 @@ extension WalletAPI {
             return try await post(
                 path: "/v1/consume/settle",
                 body: req,
-                responseType: SettleResponse.self
+                responseType: BalanceResponse.self
             )
         } catch let WalletAPIError.httpError(status, body) {
             if status == 409, body.contains("INSUFFICIENT_CREDITS") {
@@ -374,8 +410,8 @@ extension WalletAPI {
     }
 
     func cancelReserve(reservationId: String,
-                       taskId: String,
-                       reason: String) async throws -> SettleResponse {
+                       taskId: String?,
+                       reason: String?) async throws -> BalanceResponse {
 
         let req = ReserveCancelRequest(reservationId: reservationId, taskId: taskId, reason: reason)
 
@@ -383,7 +419,7 @@ extension WalletAPI {
             return try await post(
                 path: "/v1/consume/cancel",
                 body: req,
-                responseType: SettleResponse.self
+                responseType: BalanceResponse.self
             )
         } catch let WalletAPIError.httpError(status, body) {
             if status == 409, body.contains("INSUFFICIENT_CREDITS") {
@@ -407,3 +443,4 @@ private struct AnyEncodable: Encodable {
         try _encode(encoder)
     }
 }
+

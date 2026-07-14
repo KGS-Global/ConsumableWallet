@@ -54,7 +54,43 @@ public class WalletCoordinator {
         _ = try? await bootstrapService.bootstrap()
         return await WalletStore.shared.walletId()
     }
+    
+    public func onAppStartOrForeground() async -> BootstrapResponse? {
+        if let task = bootstrapTask {
+            return await task.value
+        }
 
+        if let last = lastBootstrapAt, Date().timeIntervalSince(last) < minInterval {
+            return nil
+        }
+        lastBootstrapAt = Date()
+
+        let task = Task<BootstrapResponse?, Never> { [bootstrapService] in
+            defer { Task { @MainActor in self.bootstrapTask = nil } }
+            return try? await bootstrapService.bootstrap()
+        }
+
+        bootstrapTask = task
+        return await task.value
+    }
+
+    public func onUserTappedRestore() async -> BootstrapResponse? {
+        lastBootstrapAt = nil
+        return await onAppStartOrForeground()
+    }
+
+    public func onUserTappedSignedIn() async -> BootstrapResponse? {
+        lastBootstrapAt = nil
+        return await onAppStartOrForeground()
+    }
+
+    public func onUserTappedSignedOut() async -> BootstrapResponse? {
+        lastBootstrapAt = nil
+        return await onAppStartOrForeground()
+    }
+    
+    
+    //CREDIT OPERATIONS.
     
     public func grantAppStoreCredits(
         transaction: Transaction,
@@ -62,7 +98,7 @@ public class WalletCoordinator {
     ) async throws -> AppStoreCreditGrantResponse {
         
         guard let walletId = await ensureWalletId() else {
-            throw WalletAPIError.httpError(status: 0, body: "No walletId (bootstrap failed)")
+            throw WalletAPIError.walletNotResolved
         }
         //TODO: IMPLMENT
         let request = AppStoreCreditGrantRequest(
@@ -86,9 +122,9 @@ public class WalletCoordinator {
     public func syncAppstoreSubscriptionAfterPurchase(
         transaction: Transaction,
         signedTransactionInfo: String
-    ) async throws {
+    ) async throws -> SubscriptionSyncResponse {
         guard let walletId = await ensureWalletId() else {
-            throw WalletAPIError.httpError(status: 0, body: "No walletId (bootstrap failed)")
+            throw WalletAPIError.walletNotResolved
         }
         
         let request = SubscriptionSyncRequest(walletId: walletId, transaction: transaction, signedTransactionInfo: signedTransactionInfo)
@@ -100,33 +136,7 @@ public class WalletCoordinator {
             available: res.availableBalance,
             reserved: res.reservedBalance
         )
-    }
-    
-    
-    /// Call this after a verified consumable purchase succeeds.
-    private func grantCreditsAfterPurchase(credits: Int,
-                                   idempotencyKey: String,
-                                   productId: String? = nil) async throws -> SubscriptionSyncResponse {
-        guard let walletId = await ensureWalletId() else {
-            throw WalletAPIError.httpError(status: 0, body: "No walletId (bootstrap failed)")
-        }
-
-        let meta: [String: String]? = productId.map { ["productId": $0] }
-
-        let res = try await api.grantCredits(
-            walletId: walletId,
-            idempotencyKey: idempotencyKey,
-            credits: credits,
-            reason: "CONSUMABLE_PURCHASE",
-            metadata: meta
-        )
-
-        await WalletStore.shared.updateBalances(
-            walletId: res.walletId,
-            available: res.availableBalance,
-            reserved: res.reservedBalance
-        )
-
+        
         return res
     }
 
@@ -139,17 +149,19 @@ public class WalletCoordinator {
                               clientRequestId: String,
                               metadata: [String: String]? = nil) async throws -> ReservationResponse {
         guard let walletId = await ensureWalletId() else {
-            throw WalletAPIError.httpError(status: 0, body: "No walletId (bootstrap failed)")
+            throw WalletAPIError.walletNotResolved
         }
 
-        let res = try await api.reserveCredits(
+        let reserveRequest = ReservationRequest(
             walletId: walletId,
             featureId: featureId,
             amount: amount,
             clientRequestId: clientRequestId,
-            reason: "ML_JOB_RESERVE",
+            reason: "Reserved for ML Task",
             metadata: metadata
         )
+        
+        let res = try await api.reserveCredits(request: reserveRequest)
 
         await WalletStore.shared.updateBalances(
             walletId: res.walletId,
@@ -160,18 +172,11 @@ public class WalletCoordinator {
         return res
     }
 
-    /// Cancel a reservation (iOS-callable for pre-Queue-acceptance failures).
     public func cancelReservation(reservationId: String,
-                           taskId: String? = nil,
-                           reason: String? = nil) async throws -> ConsumeCancelResponse {
-        let res = try await api.cancelReservation(
-            reservationId: reservationId,
-            taskId: taskId,
-            reason: reason,
-            idempotencyKey: "cancel:\(reservationId)",
-            metadata: nil
-        )
-
+                           reason: String = "Cancel from Client") async throws -> BalanceResponse {
+        
+        let res = try await api.cancelReserve(reservationId: reservationId, taskId: nil, reason: reason)
+        
         if let walletId = await WalletStore.shared.walletId() {
             await WalletStore.shared.updateBalances(
                 walletId: walletId,
@@ -182,49 +187,14 @@ public class WalletCoordinator {
 
         return res
     }
-
-    /// Safe: coalesces concurrent calls + debounces
-    public func onAppStartOrForeground() async -> BootstrapResponse? {
-        if let task = bootstrapTask {
-            return await task.value
-        }
-
-        if let last = lastBootstrapAt, Date().timeIntervalSince(last) < minInterval {
-            return nil
-        }
-        lastBootstrapAt = Date()
-
-        let task = Task<BootstrapResponse?, Never> { [bootstrapService] in
-            defer { Task { @MainActor in self.bootstrapTask = nil } }
-            return try? await bootstrapService.bootstrap()
-        }
-
-        bootstrapTask = task
-        return await task.value
+    
+    public func getTaskIdentifierForReservation(reservationId: String) async throws -> String? {
+        
+        let res = try await api.getReservationStatus(reservationId: reservationId)
+        
+        return res.taskId
     }
-
-//    func onUserTappedEnableIcloud() async -> BootstrapResponse? {
-//        return nil
-//    }
-//
-//    func onUserTappedResetiCloud() async -> BootstrapResponse? {
-//        return nil
-//    }
-
-    public func onUserTappedRestore() async -> BootstrapResponse? {
-        lastBootstrapAt = nil
-        return await onAppStartOrForeground()
-    }
-
-    public func onUserTappedSignedIn() async -> BootstrapResponse? {
-        lastBootstrapAt = nil
-        return await onAppStartOrForeground()
-    }
-
-    public func onUserTappedSignedOut() async -> BootstrapResponse? {
-        lastBootstrapAt = nil
-        return await onAppStartOrForeground()
-    }
+    
 }
 
 
@@ -246,27 +216,14 @@ extension WalletCoordinator {
 
     public func settleReservation(reservationId: String,
                            taskId: String,
-                           result: String = "SUCCESS") async throws -> SettleResponse {
+                           result: String = "SUCCESS") async throws -> BalanceResponse {
         let res = try await api.settleReserve(reservationId: reservationId, taskId: taskId, result: result)
 
         return res
     }
 
-    public func cancelReservation2(reservationId: String,
-                           taskId: String,
-                           reason: String = "TEST_FROM_DEVICE") async throws -> SettleResponse {
-        let res = try await api.cancelReserve(reservationId: reservationId, taskId: taskId, reason: reason)
-        
-        if let walletId = await WalletStore.shared.walletId() {
-            await WalletStore.shared.updateBalances(
-                walletId: walletId,
-                available: res.availableBalance,
-                reserved: res.reservedBalance
-            )
-        }
-
-        return res
-    }
+    
 }
+
 
 

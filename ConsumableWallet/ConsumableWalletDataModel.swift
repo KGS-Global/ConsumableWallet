@@ -169,23 +169,7 @@ public struct BootstrapResponse: Codable {
     }
 }
 
-// MARK: - Grant
 
-struct GrantRequest: Codable {
-    let walletId: String
-    let idempotencyKey: String
-    let credits: Int
-    let reason: String
-    let metadata: [String: String]?
-}
-
-struct GrantResponse: Codable {
-    let status: String
-    let walletId: String
-    let availableBalance: Int
-    let reservedBalance: Int
-    let ledgerId: String
-}
 
 // MARK: - Subscription Sync
 
@@ -223,7 +207,7 @@ public struct SubscriptionSyncResponse: Codable {
 }
 
 //MARK: AppStore Verified Credit Grant Request
-public struct AppStoreCreditGrantRequest: Codable {
+struct AppStoreCreditGrantRequest: Codable {
     public let walletId: String
     public let signedTransactionInfo: String
     public let transactionId: String?
@@ -254,19 +238,9 @@ public struct AppStoreCreditGrantResponse: Codable {
     public let creditsGranted: Int
 }
 
-
-
-// MARK: - Balance
-
-public struct BalanceResponse: Codable {
-    let walletId: String
-    let availableBalance: Int
-    let reservedBalance: Int
-}
-
 // MARK: - Reserve
 
-public struct ConsumeReserveRequest: Codable {
+struct ReservationRequest: Codable {
     let walletId: String
     let featureId: String
     let amount: Int
@@ -351,7 +325,7 @@ struct SettleRequest: Codable {
     let result: String
 }
 
-public struct SettleResponse: Codable {
+public struct BalanceResponse: Codable {
     public let walletId: String
     public let availableBalance: Int
     public let reservedBalance: Int
@@ -374,6 +348,7 @@ public struct WeeklyBalance: Codable {
 
 struct ReserveCancelRequest: Codable {
     let reservationId: String
-    let taskId: String
-    let reason: String
+    let taskId: String?
+    let reason: String?
 }
+
