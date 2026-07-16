@@ -19,6 +19,8 @@ protocol WalletAPIType {
     func reserveCredits(request: ReservationRequest) async throws -> ReservationResponse
 
     func getReservationStatus(reservationId: String) async throws -> ReservationStatusResponse
+    
+    func fetchAppConfig() async throws -> AppCreditConfigResponse
 
 
     // MARK: Delete later
@@ -62,6 +64,11 @@ public enum WalletAPIError: Error, LocalizedError {
     case timeout
     case offline
     case cancelled
+    
+    case clientCertificateMissing
+    case clientCertificateInvalid
+    case tlsHandshakeFailed
+    
     case unknown(Error)
 
     public var errorDescription: String? {
@@ -102,6 +109,12 @@ public enum WalletAPIError: Error, LocalizedError {
             return "No internet connection"
         case .cancelled:
             return "Request cancelled"
+        case .clientCertificateMissing:
+            return "Client certificate is missing."
+        case .clientCertificateInvalid:
+            return "Client certificate is invalid."
+        case .tlsHandshakeFailed:
+            return "Secure connection failed."
         case .unknown(let err):
             return "Unknown error: \(err.localizedDescription)"
         }
@@ -117,14 +130,27 @@ final class WalletAPI: WalletAPIType {
     private let appId: String
     private let appKey: String
 
-    init(with walletConfig: WalletConfig, session: URLSession = .shared) {
+    init(with walletConfig: WalletConfig, session: URLSession? = nil) {
         guard let url = walletConfig.walletBaseURL else {
             fatalError("Invalid base URL string: \(String(describing: walletConfig.walletBaseURL?.absoluteString))")
         }
         self.baseURL = url
         self.appId = walletConfig.appId
         self.appKey = walletConfig.appKey
-        self.session = session
+        
+        if let session {
+            self.session = session
+        } else if let mtlsConfig = walletConfig.mtlsConfig {
+            do {
+                self.session = try WalletURLSessionFactory.makeMTLSSession(
+                    config: mtlsConfig
+                )
+            } catch {
+                fatalError("ConsumableWallet:: Failed to create mTLS wallet URLSession: \(error)")
+            }
+        } else {
+            self.session = .shared
+        }
     }
 
     // MARK: - Public API
@@ -182,6 +208,13 @@ final class WalletAPI: WalletAPIType {
         return try await get(
             path: "/v1/consume/reservations/\(reservationId)",
             responseType: ReservationStatusResponse.self
+        )
+    }
+    
+    public func fetchAppConfig() async throws -> AppCreditConfigResponse {
+        return try await get(
+            path: "/v1/app/config",
+            responseType: AppCreditConfigResponse.self
         )
     }
 
@@ -255,8 +288,8 @@ final class WalletAPI: WalletAPIType {
                 throw WalletAPIError.httpError(status: -1, body: "Non-HTTP response")
             }
             
-            print("BAKER TEST: Request url: ", request.url ?? "--")
-            print("BAKER TEST: statusCode: ", http.statusCode)
+            print("ConsumableWallet:: Request url: ", request.url ?? "--")
+            print("ConsumableWallet:: statusCode: ", http.statusCode)
             
             guard (200..<300).contains(http.statusCode) else {
                 let bodyStr = String(data: data, encoding: .utf8) ?? "<non-utf8 body>"

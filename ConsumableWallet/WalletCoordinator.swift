@@ -33,7 +33,7 @@ public class WalletCoordinator {
         if let coordinator = _instance {
             return coordinator
         }
-
+        
         let coordinator = WalletCoordinator(
             api: WalletAPI(with: config)
         )
@@ -191,8 +191,25 @@ public class WalletCoordinator {
     public func getTaskIdentifierForReservation(reservationId: String) async throws -> String? {
         
         let res = try await api.getReservationStatus(reservationId: reservationId)
-        
         return res.taskId
+    }
+    
+    
+    public func fetchAppCreditConfigs() async throws -> AppCreditConfigResponse{
+        
+        let config = try await api.fetchAppConfig()
+
+        print("ConsumableWallet:: Weekly allowance:", config.weeklyEntitled)
+
+        for product in config.creditProducts {
+            print("ConsumableWallet:: Product:", product.productId, "credits:", product.credits)
+        }
+
+        for feature in config.featureCosts {
+            print("ConsumableWallet:: Feature:", feature.featureId, "cost:", feature.credits)
+        }
+        
+        return config
     }
     
 }

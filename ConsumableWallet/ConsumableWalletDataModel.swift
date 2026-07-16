@@ -304,6 +304,27 @@ struct ReservationStatusResponse: Codable {
 }
 
 
+// MARK: AppCreditConfigResponse
+
+public struct AppCreditConfigResponse: Codable {
+    public let appId: String
+    public let weeklyEntitled: Int
+    public let creditProducts: [CreditProductInfo]
+    public let featureCosts: [FeatureCreditCostInfo]
+}
+
+public struct CreditProductInfo: Codable {
+    public let productId: String
+    public let credits: Int
+}
+
+public struct FeatureCreditCostInfo: Codable {
+    public let featureId: String
+    public let credits: Int
+    public let status: String
+}
+
+
 struct AttachRequest: Codable {
     let reservationId: String
     let reservationToken: String
@@ -352,3 +373,43 @@ struct ReserveCancelRequest: Codable {
     let reason: String?
 }
 
+// MARK: MTLS CONFIG
+public struct MTLSConfig {
+    public let certificateResourceName: String
+    public let certificateExtension: String
+    public let certificatePassword: String
+    public let bundle: Bundle
+
+    public init(
+        certificateResourceName: String,
+        certificateExtension: String = "pfx",
+        certificatePassword: String,
+        bundle: Bundle = .main
+    ) {
+        self.certificateResourceName = certificateResourceName
+        self.certificateExtension = certificateExtension
+        self.certificatePassword = certificatePassword
+        self.bundle = bundle
+    }
+}
+
+
+public enum WalletURLSessionFactory {
+
+    public static func makeMTLSSession(
+        config mtlsConfig: MTLSConfig
+    ) throws -> URLSession {
+        let delegate = try WalletMTLSSessionDelegate(config: mtlsConfig)
+
+        let sessionConfig = URLSessionConfiguration.default
+        sessionConfig.timeoutIntervalForRequest = 20
+        sessionConfig.timeoutIntervalForResource = 60
+        sessionConfig.waitsForConnectivity = true
+
+        return URLSession(
+            configuration: sessionConfig,
+            delegate: delegate,
+            delegateQueue: nil
+        )
+    }
+}

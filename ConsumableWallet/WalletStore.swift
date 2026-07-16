@@ -35,11 +35,11 @@ public actor WalletStore {
 
     public func currentSnapshot() -> WalletSnapshot? {
         if let cached { return cached }
-        if let data = defaults.data(forKey: key),
-           let snap = try? JSONDecoder().decode(WalletSnapshot.self, from: data) {
-            cached = snap
-            return snap
-        }
+//        if let data = defaults.data(forKey: key),
+//           let snap = try? JSONDecoder().decode(WalletSnapshot.self, from: data) {
+//            cached = snap
+//            return snap
+//        }
         return nil
     }
 
