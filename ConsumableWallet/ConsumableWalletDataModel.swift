@@ -252,7 +252,7 @@ struct ReservationRequest: Codable {
 public struct ReservationResponse: Codable {
     public let status: String
     public let reservationId: String
-    public let reservationToken: String
+    public let reservationToken: String?
     public let walletId: String
     public let featureId: String
     public let amount: Int

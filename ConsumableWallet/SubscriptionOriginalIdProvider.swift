@@ -20,6 +20,15 @@ enum SubscriptionOriginalIdProvider {
     // Call this rarely (e.g., on user action "Restore / Sync").
     static func refreshFromHistory() async {
         WalletPreferences.shared.cachedSubscriptionOriginalId = ""
+        
+        for await result in Transaction.currentEntitlements {
+            guard case .verified(let tx) = result else { continue }
+            if tx.productType == .autoRenewable {
+                WalletPreferences.shared.cachedSubscriptionOriginalId = String(tx.originalID)
+                return
+            }
+        }
+        
         for await result in Transaction.all {
             guard case .verified(let tx) = result else { continue }
             if tx.productType == .autoRenewable {
