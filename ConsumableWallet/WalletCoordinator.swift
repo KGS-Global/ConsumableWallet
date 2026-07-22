@@ -47,14 +47,14 @@ public class WalletCoordinator {
     }
 
     /// Ensures we have a walletId. If missing, bootstraps once.
-    private func ensureWalletId() async -> String? {
+    private func ensureWalletId() async throws -> String? {
         if let wid = await WalletStore.shared.walletId() {
             return wid
         }
-        _ = try? await bootstrapService.bootstrap()
+        _ = try await bootstrapService.bootstrap()
         return await WalletStore.shared.walletId()
     }
-    
+
     public func onAppStartOrForeground() async -> BootstrapResponse? {
         if let task = bootstrapTask {
             return await task.value
@@ -97,7 +97,7 @@ public class WalletCoordinator {
         signedTransactionInfo: String
     ) async throws -> AppStoreCreditGrantResponse {
         
-        guard let walletId = await ensureWalletId() else {
+        guard let walletId = try await ensureWalletId() else {
             throw WalletAPIError.walletNotResolved
         }
         //TODO: IMPLMENT
@@ -123,7 +123,7 @@ public class WalletCoordinator {
         transaction: Transaction,
         signedTransactionInfo: String
     ) async throws -> SubscriptionSyncResponse {
-        guard let walletId = await ensureWalletId() else {
+        guard let walletId = try await ensureWalletId() else {
             throw WalletAPIError.walletNotResolved
         }
         
@@ -148,7 +148,7 @@ public class WalletCoordinator {
                               amount: Int,
                               clientRequestId: String,
                               metadata: [String: String]? = nil) async throws -> ReservationResponse {
-        guard let walletId = await ensureWalletId() else {
+        guard let walletId = try await ensureWalletId() else {
             throw WalletAPIError.walletNotResolved
         }
 
