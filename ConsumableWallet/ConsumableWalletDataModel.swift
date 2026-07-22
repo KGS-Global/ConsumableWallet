@@ -125,14 +125,14 @@ struct BootstrapRequest: Codable {
 }
 
 public struct BootstrapResponse: Codable {
-    let walletId: String
-    let mode: IdentityType
-    let availableBalance: Int
-    let reservedBalance: Int
-    let bankedBalance: Int
-    let bankedReservedBalance: Int
-    let weekly: WeeklyState?
-    let warnings: [BootstrapWarning]
+    public let walletId: String
+    public let mode: IdentityType
+    public let availableBalance: Int
+    public let reservedBalance: Int
+    public let bankedBalance: Int
+    public let bankedReservedBalance: Int
+    public let weekly: WeeklyState?
+    public let warnings: [BootstrapWarning]
 
     private enum CodingKeys: String, CodingKey {
         case walletId, mode, availableBalance, reservedBalance
