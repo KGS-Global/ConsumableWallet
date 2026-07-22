@@ -9,7 +9,7 @@
 Pod::Spec.new do |spec|
 
   spec.name         = "ConsumableWallet"
-  spec.version      = "0.0.3"
+  spec.version      = "0.0.4"
   spec.summary      = "A lightweight swift library for managing consumable credits"
 
   spec.description  = <<-DESC 
