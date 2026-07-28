@@ -16,8 +16,11 @@ final class WalletBootstrapService {
     init(api: WalletAPIType) {
         self.api = api
     }
+    
+    
 
     func bootstrap() async throws -> BootstrapResponse {
+        
         let appleId = AppleAuthStore.shared.appleUserId
         let _ = await SubscriptionOriginalIdProvider.refreshFromHistory()
         let originalTransactionId = SubscriptionOriginalIdProvider.cached()
@@ -26,6 +29,10 @@ final class WalletBootstrapService {
             appleUserId: appleId,
             originalTransactionId: originalTransactionId
         )
+        
+        for identity in identities {
+            print("BAKER TEST: identity type: \(identity.type), value: \(identity.value)")
+        }
 
         let subscription: WalletSubscriptionInfo? = await WalletSubscriptionBridge.currentSubscriptionStatus()
 

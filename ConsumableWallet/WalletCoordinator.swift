@@ -80,6 +80,7 @@ public class WalletCoordinator {
     }
 
     public func onUserTappedSignedIn() async -> BootstrapResponse? {
+        print("ConsumableWallet:: Call onUserTappedSignedIn only after apple sign in succss!")
         lastBootstrapAt = nil
         return await onAppStartOrForeground()
     }
@@ -87,6 +88,50 @@ public class WalletCoordinator {
     public func onUserTappedSignedOut() async -> BootstrapResponse? {
         lastBootstrapAt = nil
         return await onAppStartOrForeground()
+    }
+    
+    public func relinkAppleIdentity(identityToken: String) async throws -> AppleIdentityResponse? {
+        
+        print("BAKER TEST: WILL TRY TO RELINK APPLE ACCOUNT!")
+        guard let appleUserId = AppleAuthStore.shared.appleUserId else { return nil }
+        let deviceLocal = WalletIdentityManager.shared.deviceUUID()
+        
+        let request = AppleIdentityRelinkRequest(appleUserId: appleUserId,
+                                                 identityToken: identityToken,
+                                                 deviceLocalId: deviceLocal)
+        
+        
+        do {
+            print("BAKER TEST: Requesting to  RELINK APPLE ACCOUNT!")
+            let res = try await api.relinkAppleIdentity(request: request)
+            return res
+        } catch  WalletAPIError.appleIdentityDeletionNotFound {
+            //REMOVE IDENTITY TOKEN SO NEXT BOOTSTRAP WILL NOT TRY RELINK AGAIN.
+            print("BAKER TEST: APPLE RELINK FAILED, NO APPLE IDENTITY FOR DELETION FOUND!")
+        } catch {
+            print("BAKER TEST: APPLE RELINK FAILED, error: ", error.localizedDescription)
+        }
+        
+        return nil
+        
+    }
+    
+    
+    public func deleteAppleAccountRequest(identityToken: String) async throws -> AppleIdentityResponse? {
+        
+        print("ConsumableWallet:: Call deleteAppleAccountRequest only after apple sign in succss!")
+        
+        guard let appleUserId = AppleAuthStore.shared.appleUserId else { return nil }
+        let walletId = await WalletStore.shared.walletId()
+        let deviceLocalId = WalletIdentityManager.shared.deviceUUID()
+        
+        let request = AppleIdentityDeleteRequest(walletId: walletId, appleUserId: appleUserId, identityToken: identityToken, deviceLocalId: deviceLocalId)
+        
+        let res = try await api.deleteAppleIdentity(request: request)
+        print("BAKER TEST: Identity after deletion: ", res.walletMode)
+        AppleAuthStore.shared.logoutLocal()
+        
+        return res
     }
     
     

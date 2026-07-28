@@ -11,13 +11,17 @@ public final class AppleAuthStore {
     public static let shared = AppleAuthStore()
     private init() {}
 
-    public var appleUserId: String? {
+    var appleUserId: String? {
         get { WalletPreferences.shared.appleUserId }
         set { WalletPreferences.shared.appleUserId = newValue }
     }
 
     public func logoutLocal() {
         appleUserId = nil
+    }
+    
+    public func userLoggedIn(userId: String) {
+        self.appleUserId = userId
     }
 }
 

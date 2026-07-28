@@ -12,6 +12,10 @@ import Foundation
 protocol WalletAPIType {
     func bootstrap(request: BootstrapRequest) async throws -> BootstrapResponse
     
+    func deleteAppleIdentity(request: AppleIdentityDeleteRequest) async throws -> AppleIdentityResponse
+
+    func relinkAppleIdentity(request: AppleIdentityRelinkRequest) async throws -> AppleIdentityResponse
+    
     func grantAppstoreVerifiedCredits(request: AppStoreCreditGrantRequest) async throws -> AppStoreCreditGrantResponse
     
     func syncAppstoreVerifiedSubscription(request: SubscriptionSyncRequest) async throws -> SubscriptionSyncResponse
@@ -105,6 +109,21 @@ public enum WalletAPIError: Error, LocalizedError {
     case appStoreRootCertsDirNotFound
     case appStoreRootCertsMissing
     case appStoreServerLibraryNotInstalled
+    
+    // APPLE IDENTITY ERRORS
+    case appleIdentityNotFound
+    case walletAppleIdentityMismatch
+    case appleIdentityDeletionNotFound
+    case restoreTargetWalletNotFound
+
+    // SIGN IN WITH APPLE TOKEN ERRORS
+    case appleIdentityTokenExpired
+    case appleIdentityTokenAudienceMismatch
+    case appleIdentityTokenInvalid
+    case appleSignInJWKSUnavailable
+    case appleSignInJWTLibraryNotInstalled
+    case appleUserIdMismatch
+    
     case noAdjustment
     case negativeBalanceNotAllowed
     case decodingError(String)
@@ -244,6 +263,35 @@ public enum WalletAPIError: Error, LocalizedError {
             return "The App Store root certificates are missing."
         case .appStoreServerLibraryNotInstalled:
             return "The App Store Server Library is not installed on the server."
+        case .appleIdentityNotFound:
+            return "The Sign in with Apple identity is not linked to a wallet."
+
+        case .walletAppleIdentityMismatch:
+            return "The Sign in with Apple identity belongs to a different wallet."
+
+        case .appleIdentityDeletionNotFound:
+            return "There is no previously deleted Apple identity to restore."
+
+        case .restoreTargetWalletNotFound:
+            return "The wallet previously linked to this Apple identity could not be restored."
+
+        case .appleIdentityTokenExpired:
+            return "The Sign in with Apple identity token has expired. Please sign in again."
+
+        case .appleIdentityTokenAudienceMismatch:
+            return "The Sign in with Apple identity token was issued for a different app."
+
+        case .appleIdentityTokenInvalid:
+            return "The Sign in with Apple identity token is invalid."
+
+        case .appleSignInJWKSUnavailable:
+            return "Apple identity verification is temporarily unavailable. Please try again."
+
+        case .appleSignInJWTLibraryNotInstalled:
+            return "Apple identity verification is not configured correctly on the server."
+        case .appleUserIdMismatch:
+            return "The supplied Apple user ID does not match the verified identity token."
+            
         case .noAdjustment:
             return "At least one credit adjustment must be non-zero."
         case .negativeBalanceNotAllowed:
@@ -307,6 +355,22 @@ final class WalletAPI: WalletAPIType {
             path: "/v1/session/bootstrap",
             body: request,
             responseType: BootstrapResponse.self
+        )
+    }
+    
+    func deleteAppleIdentity(request: AppleIdentityDeleteRequest) async throws -> AppleIdentityResponse {
+        try await post(
+            path: "/v1/identity/apple/delete",
+            body: request,
+            responseType: AppleIdentityResponse.self
+        )
+    }
+
+    func relinkAppleIdentity(request: AppleIdentityRelinkRequest) async throws -> AppleIdentityResponse {
+        try await post(
+            path: "/v1/identity/apple/relink",
+            body: request,
+            responseType: AppleIdentityResponse.self
         )
     }
     
@@ -545,6 +609,15 @@ final class WalletAPI: WalletAPIType {
             "APPSTORE_ROOT_CERTS_DIR_NOT_FOUND",
             "APPSTORE_ROOT_CERTS_MISSING",
             "APPSTORE_SERVER_LIBRARY_NOT_INSTALLED",
+            "APPLE_IDENTITY_NOT_FOUND",
+            "WALLET_APPLE_IDENTITY_MISMATCH",
+            "APPLE_IDENTITY_DELETION_NOT_FOUND",
+            "RESTORE_TARGET_WALLET_NOT_FOUND",
+            "APPLE_IDENTITY_TOKEN_EXPIRED",
+            "APPLE_IDENTITY_TOKEN_AUDIENCE_MISMATCH",
+            "APPLE_IDENTITY_TOKEN_INVALID",
+            "APPLE_SIGNIN_JWKS_UNAVAILABLE",
+            "APPLE_SIGNIN_JWT_LIBRARY_NOT_INSTALLED",
             "NO_ADJUSTMENT",
             "NEGATIVE_BALANCE_NOT_ALLOWED"
         ]
@@ -682,6 +755,26 @@ final class WalletAPI: WalletAPIType {
             return .appStoreRootCertsMissing
         case "APPSTORE_SERVER_LIBRARY_NOT_INSTALLED":
             return .appStoreServerLibraryNotInstalled
+        case "APPLE_IDENTITY_NOT_FOUND":
+            return .appleIdentityNotFound
+        case "WALLET_APPLE_IDENTITY_MISMATCH":
+            return .walletAppleIdentityMismatch
+        case "APPLE_IDENTITY_DELETION_NOT_FOUND":
+            return .appleIdentityDeletionNotFound
+        case "RESTORE_TARGET_WALLET_NOT_FOUND":
+            return .restoreTargetWalletNotFound
+        case "APPLE_IDENTITY_TOKEN_EXPIRED":
+            return .appleIdentityTokenExpired
+        case "APPLE_IDENTITY_TOKEN_AUDIENCE_MISMATCH":
+            return .appleIdentityTokenAudienceMismatch
+        case "APPLE_IDENTITY_TOKEN_INVALID":
+            return .appleIdentityTokenInvalid
+        case "APPLE_SIGNIN_JWKS_UNAVAILABLE":
+            return .appleSignInJWKSUnavailable
+        case "APPLE_SIGNIN_JWT_LIBRARY_NOT_INSTALLED":
+            return .appleSignInJWTLibraryNotInstalled
+        case "APPLE_USER_ID_MISMATCH":
+            return .appleUserIdMismatch
         case "NO_ADJUSTMENT":
             return .noAdjustment
         case "NEGATIVE_BALANCE_NOT_ALLOWED":

@@ -373,6 +373,63 @@ struct ReserveCancelRequest: Codable {
     let reason: String?
 }
 
+public struct AppleIdentityDeleteRequest: Encodable {
+    public let walletId: String?
+    public let appleUserId: String
+    public let identityToken: String
+    public let deviceLocalId: String?
+    public let reason: String
+    public let metadata: [String: String]
+
+    public init(
+        walletId: String?,
+        appleUserId: String,
+        identityToken: String,
+        deviceLocalId: String?,
+        reason: String = "USER_REQUESTED_ACCOUNT_DELETION",
+        metadata: [String: String] = [:]
+    ) {
+        self.walletId = walletId
+        self.appleUserId = appleUserId
+        self.identityToken = identityToken
+        self.deviceLocalId = deviceLocalId
+        self.reason = reason
+        self.metadata = metadata
+    }
+}
+
+public struct AppleIdentityRelinkRequest: Encodable {
+    public let appleUserId: String
+    public let identityToken: String
+    public let deviceLocalId: String?
+
+    public init(
+        appleUserId: String,
+        identityToken: String,
+        deviceLocalId: String?
+    ) {
+        self.appleUserId = appleUserId
+        self.identityToken = identityToken
+        self.deviceLocalId = deviceLocalId
+    }
+}
+
+public struct AppleIdentityResponse: Decodable {
+    public let walletId: String
+    public let status: String
+    public let appleLinked: Bool
+
+    public let walletMode: IdentityType
+    public let availableBalance: Int
+    public let reservedBalance: Int
+    public let bankedBalance: Int
+    public let bankedReservedBalance: Int
+    public let weekly: WeeklyState
+    public let warning: String?
+}
+
+
+
 // MARK: MTLS CONFIG
 public struct MTLSConfig {
     public let certificateResourceName: String
