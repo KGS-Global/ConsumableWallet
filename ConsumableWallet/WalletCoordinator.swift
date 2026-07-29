@@ -92,7 +92,6 @@ public class WalletCoordinator {
     
     public func relinkAppleIdentity(identityToken: String) async throws -> AppleIdentityResponse? {
         
-        print("BAKER TEST: WILL TRY TO RELINK APPLE ACCOUNT!")
         guard let appleUserId = AppleAuthStore.shared.appleUserId else { return nil }
         let deviceLocal = WalletIdentityManager.shared.deviceUUID()
         
@@ -102,14 +101,14 @@ public class WalletCoordinator {
         
         
         do {
-            print("BAKER TEST: Requesting to  RELINK APPLE ACCOUNT!")
+            print("ConsumableWallet:: Requesting to  RELINK APPLE ACCOUNT!")
             let res = try await api.relinkAppleIdentity(request: request)
             return res
         } catch  WalletAPIError.appleIdentityDeletionNotFound {
             //REMOVE IDENTITY TOKEN SO NEXT BOOTSTRAP WILL NOT TRY RELINK AGAIN.
-            print("BAKER TEST: APPLE RELINK FAILED, NO APPLE IDENTITY FOR DELETION FOUND!")
+            print("ConsumableWallet:: APPLE RELINK FAILED, NO APPLE IDENTITY FOR DELETION FOUND!")
         } catch {
-            print("BAKER TEST: APPLE RELINK FAILED, error: ", error.localizedDescription)
+            print("ConsumableWallet:: APPLE RELINK FAILED, error: ", error.localizedDescription)
         }
         
         return nil
@@ -128,7 +127,7 @@ public class WalletCoordinator {
         let request = AppleIdentityDeleteRequest(walletId: walletId, appleUserId: appleUserId, identityToken: identityToken, deviceLocalId: deviceLocalId)
         
         let res = try await api.deleteAppleIdentity(request: request)
-        print("BAKER TEST: Identity after deletion: ", res.walletMode)
+        print("ConsumableWallet:: Identity after deletion: ", res.walletMode)
         AppleAuthStore.shared.logoutLocal()
         
         return res
@@ -154,6 +153,9 @@ public class WalletCoordinator {
         
         let res = try await api.grantAppstoreVerifiedCredits(request: request)
         
+        
+        print("ConsumableWallet:: Banked amount: ", res.bankedBalance)
+        print("ConsumableWallet:: Banked reserve amount: ", res.bankedReservedBalance)
         await WalletStore.shared.updateBalances(
             walletId: res.walletId,
             available: res.availableBalance,
@@ -161,6 +163,33 @@ public class WalletCoordinator {
         )
         
         return res
+    }
+    
+    public func syncWeeklyAllowance() async throws -> SubscriptionSyncResponse? {
+        
+        let (transaction, jwt) = await WalletSubscriptionBridge.getLatestSubTransactionDetails()
+        guard let transaction = transaction else { return nil }
+        guard let signedTransactionInfo = jwt else { return nil }
+        
+        guard let walletId = try await ensureWalletId() else {
+            throw WalletAPIError.walletNotResolved
+        }
+        
+        let request = SubscriptionSyncRequest(walletId: walletId, transaction: transaction, signedTransactionInfo: signedTransactionInfo)
+
+        let res = try await api.syncAppstoreVerifiedSubscription(request: request)
+        
+        print("ConsumableWallet:: Banked amount: ", res.bankedBalance)
+        print("ConsumableWallet:: Banked reserve amount: ", res.bankedReservedBalance)
+        await WalletStore.shared.updateBalances(
+            walletId: res.walletId,
+            available: res.availableBalance,
+            reserved: res.reservedBalance
+        )
+        
+        return res
+        
+        
     }
     
     /// Call this after a verified auto-renewable subscription purchase to sync weekly allowance.
@@ -176,6 +205,8 @@ public class WalletCoordinator {
 
         let res = try await api.syncAppstoreVerifiedSubscription(request: request)
         
+        print("ConsumableWallet:: Banked amount: ", res.bankedBalance)
+        print("ConsumableWallet:: Banked reserve amount: ", res.bankedReservedBalance)
         await WalletStore.shared.updateBalances(
             walletId: res.walletId,
             available: res.availableBalance,
@@ -208,6 +239,8 @@ public class WalletCoordinator {
         
         let res = try await api.reserveCredits(request: reserveRequest)
 
+        print("ConsumableWallet:: Weekly amount: ", res.weeklyAmount)
+        
         await WalletStore.shared.updateBalances(
             walletId: res.walletId,
             available: res.availableBalance,
@@ -222,6 +255,8 @@ public class WalletCoordinator {
         
         let res = try await api.cancelReserve(reservationId: reservationId, taskId: nil, reason: reason)
         
+        print("ConsumableWallet:: Banked amount: ", res.bankedBalance)
+        print("ConsumableWallet:: Banked reserve amount: ", res.bankedReservedBalance)
         if let walletId = await WalletStore.shared.walletId() {
             await WalletStore.shared.updateBalances(
                 walletId: walletId,

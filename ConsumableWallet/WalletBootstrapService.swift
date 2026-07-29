@@ -31,7 +31,7 @@ final class WalletBootstrapService {
         )
         
         for identity in identities {
-            print("BAKER TEST: identity type: \(identity.type), value: \(identity.value)")
+            print("ConsumableWallet:: identity type: \(identity.type), value: \(identity.value)")
         }
 
         let subscription: WalletSubscriptionInfo? = await WalletSubscriptionBridge.currentSubscriptionStatus()
